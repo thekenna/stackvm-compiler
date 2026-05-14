@@ -39,7 +39,6 @@ pub fn main() !void {
 
     // vm.run(&program);
     
-
     // std.debug.print("Result memory[0]: {d}\n", .{vm.mem.data[0]});
 
 
