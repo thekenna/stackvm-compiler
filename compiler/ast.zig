@@ -1,3 +1,6 @@
+
+pub const Op = enum {add, sub,};
+
 pub const Node = union(enum) {
     number: i64,
     variable: []const u8,
@@ -12,6 +15,6 @@ pub const Node = union(enum) {
     pub const BynaryOp = struct {
         l: *Node,
         r: *Node,
-        op: []const u8,
+        op: Op,
     };
 };

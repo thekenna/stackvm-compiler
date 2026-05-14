@@ -2,8 +2,7 @@ const std = @import("std");
 
 pub const TokenType = enum {
     let,
-    @"var", // std.meta.stringToEnum(TokenType, value)
-    @"if",
+    @"if",// std.meta.stringToEnum(TokenType, value)
     @"else",
     identifier,
     assign, //  "="
