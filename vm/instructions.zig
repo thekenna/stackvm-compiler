@@ -1,5 +1,5 @@
 pub const OpCode = enum(u8) {
-    exit = 0x00,
+    halt = 0x00,
     push = 0x01,
     add = 0x02,
     sub = 0x03,

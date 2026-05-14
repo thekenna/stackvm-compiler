@@ -51,7 +51,7 @@ pub const VM = struct {
                     self.stack.push(b - a);
                     std.debug.print(" -> SUB ({d} - {d} )\n", .{ b, a });
                 },
-                .exit => {
+                .halt => {
                     std.debug.print(" Exit Exec Loop\n", .{});
                     break;
                 },
