@@ -54,7 +54,17 @@ pub const Compiler = struct {
         scope.deinit();   
     }
 
-    fn resolveVariable
+    fn resolveVariable(self: *Compiler, func_name: []const u8) ?isize {
+        var i = self.scopes.items.len;
+        while (i > 0) {
+            i -= 1;
+            if (self.scopes.items[i].get(func_name)) |offset| {
+                return offset;
+            }
+        }
+
+        return null;
+    }
 
     pub fn emit(self: *Compiler, item: u8) !void {
         try self.bytecode.append(self.allocator, item);
