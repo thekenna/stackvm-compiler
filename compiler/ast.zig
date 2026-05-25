@@ -1,11 +1,15 @@
-
-pub const Op = enum {add, sub,};
+pub const Op = enum {
+    add,
+    sub,
+};
 
 pub const Node = union(enum) {
     number: i64,
     variable: []const u8,
     assignment: Assigment,
     binary_op: BynaryOp,
+    function_decl: FunctionDecl,
+    call_expr: CallExpr,
 
     pub const Assigment = struct {
         name: []const u8,
@@ -17,4 +21,15 @@ pub const Node = union(enum) {
         r: *Node,
         op: Op,
     };
+
+    pub const FunctionDecl = struct {
+        name: []const u8,
+        params: [][]const u8,
+        body: []*Node,
+    };
+
+    pub const CallExpr = struct {
+        name: []const u8,
+        args: [][]*Node,
+    }; 
 };

@@ -12,6 +12,10 @@ pub const TokenType = enum {
     lpar, // (
     rpar, // )
     eof,
+    function,
+    lbrace, // {
+    rbrace, // },
+    comma, // ,
 };
 
 pub const Token = struct {
@@ -33,7 +37,7 @@ pub const Lexer = struct {
             };
         }
 
-        const start = self.pos; // Запоминаем начало ДО сдвига
+        const start = self.pos; 
         const curChar = self.source[self.pos];
 
         return switch (curChar) {
@@ -44,6 +48,9 @@ pub const Lexer = struct {
             ';' => self.consume(TokenType.semicolon, start, self.pos + 1),
             '(' => self.consume(TokenType.lpar, start, self.pos + 1),
             ')' => self.consume(TokenType.rpar, start, self.pos + 1),
+            '{' => self.consume(TokenType.lbrace, start, self.pos + 1),
+            '}' => self.consume(TokenType.rbrace, start, self.pos + 1),
+            ',' => self.consume(TokenType.comma, start, self.pos + 1),
             else => {
                 std.debug.print("Unknown character: {c}\n", .{curChar});
                 self.pos += 1;

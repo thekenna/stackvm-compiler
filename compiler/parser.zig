@@ -10,12 +10,17 @@ pub const ParserError = error{ UnexpectedToken, InvalidNumber } || std.mem.Alloc
 pub const Parser = struct {
     lexer: *Lexer,
     current_token: Token,
+    next_token: Token,
     allocator: std.mem.Allocator,
 
     pub fn init(lexer: *Lexer, allocator: std.mem.Allocator) Parser {
+        const first_token = lexer.next();
+        const second_token = lexer.next();
+
         return Parser{
             .lexer = lexer,
-            .current_token = lexer.next(), // load first token
+            .current_token = first_token,
+            .next_token = second_token,
             .allocator = allocator,
         };
     }
@@ -26,8 +31,8 @@ pub const Parser = struct {
         // eat 5 and assign to left -> next token to current (.plus)
 
         while (self.current_token.type == .plus) {
-            const op_token = self.current_token; 
-            
+            const op_token = self.current_token;
+
             self.eatToken(); // eat +(.plus)
 
             const op: ast.Op = switch (op_token.type) {
@@ -39,18 +44,16 @@ pub const Parser = struct {
 
             const node_ptr = try self.allocator.create(Node);
 
-            node_ptr.* = Node{
-                .binary_op = .{
-                    .l = left,
-                    .op = op,
-                    .r = right,
-                }
-            };
+            node_ptr.* = Node{ .binary_op = .{
+                .l = left,
+                .op = op,
+                .r = right,
+            } };
 
             left = node_ptr; // value = (5 .plus 3) to left [for next iteration]
         }
 
-        return left; // result three 
+        return left; // result three
     }
 
     pub fn parseStatement(self: *Parser) !*Node {
@@ -72,13 +75,11 @@ pub const Parser = struct {
 
             const assign_node = try self.allocator.create(Node);
 
-            assign_node.* = Node{
-                .assignment = .{
-                    .name = name_token.value,
-                    .value = value_node,
-                }
-            };
-            
+            assign_node.* = Node{ .assignment = .{
+                .name = name_token.value,
+                .value = value_node,
+            } };
+
             return assign_node;
         }
 
@@ -94,9 +95,13 @@ pub const Parser = struct {
 
         switch (self.current_token.type) {
             .identifier => {
-                node_ptr.* = Node{ .variable = self.current_token.value };
-                self.eatToken();
-                return node_ptr;
+                if (self.next_token.type == .lpar) {
+                    return try self.parseCallExpression();
+                } else {
+                    node_ptr.* = Node{ .variable = self.current_token.value };
+                    self.eatToken();
+                    return node_ptr;
+                }
             },
             .number => {
                 const value = std.fmt.parseInt(i64, self.current_token.value, 10) catch {
@@ -107,6 +112,9 @@ pub const Parser = struct {
                 node_ptr.* = Node{ .number = value };
                 return node_ptr;
             },
+            .function => {
+                return try self.parseFunction();
+            },
             else => {
                 std.debug.print("PARSE ERROR: Unexpected token for primary expression: {s}\n", .{self.current_token.value});
                 return error.UnexpectedToken;
@@ -114,11 +122,89 @@ pub const Parser = struct {
         }
     }
 
-    pub fn eatToken(self: *Parser) void {
-        self.current_token = self.lexer.next();
+    fn parseFunction(self: *Parser) !*Node {
+        try self.consume(.function); // [function]
+
+        const func_name = self.current_token.value;
+        try self.consume(.identifier); // function [doSomething]
+
+        try self.consume(.lpar); // function doSomething [ ( ]
+
+        var params = try std.ArrayList([]const u8).initCapacity(self.allocator, 0);
+        defer params.deinit(self.allocator);
+
+        while (self.current_token.type != .rpar) {
+            const arg_name = self.current_token.value;
+            try self.consume(.identifier); // function doSomething ( [ a ]
+
+            try params.append(self.allocator, arg_name);
+
+            if (self.current_token.type == .comma) {
+                try self.consume(.comma); // function doSomething (a[ , ]
+            }
+        }
+
+        try self.consume(.rpar); // function doSomething (a, b[ ) ]
+        try self.consume(.lbrace); // function doSomething (a, b) [ { ]
+
+        var body = try std.ArrayList(*Node).initCapacity(self.allocator, 0);
+        defer body.deinit(self.allocator);
+
+        // parse function body function doSomething (a, b) {[...]
+        while (self.current_token.type != .rbrace) {
+            const node = try self.parseStatement();
+            try body.append(self.allocator, node);
+        }
+
+        try self.consume(.rbrace); // function body function doSomething (a, b) {...[ } ]
+
+        const node = try self.allocator.create(Node);
+
+        node.* = Node{ .function_decl = .{
+            .name = func_name,
+            .params = try params.toOwnedSlice(self.allocator),
+            .body = try body.toOwnedSlice(self.allocator),
+        } };
+
+        return node;
     }
 
-    pub fn consume(self: *Parser, expected_token_type: TokenType) !void {
+    fn parseCallExpression(self: *Parser) !*Node {
+        const func_name = self.current_token.value;
+
+        try self.consume(.lpar);
+
+        var args = try std.ArrayList(*Node).initCapacity(self.allocator, 0);
+        defer args.deinit(self.allocator);
+
+        while (self.current_token.type != .rpar) {
+            const arg = try self.parseExpression();
+
+            try args.append(self.allocator, arg);
+
+            if (self.current_token.type == .comma) {
+                try self.consume(.comma);
+            }
+        }
+
+        try self.consume(.rpar);
+
+        const node = try self.allocator.create(Node);
+
+        node.* = Node{ .call_expr = .{
+            .name = func_name,
+            .args = args.toOwnedSlice(self.allocator),
+        } };
+
+        return node;
+    }
+
+    fn eatToken(self: *Parser) void {
+        self.current_token = self.next_token;
+        self.next_token = self.lexer.next();
+    }
+
+    fn consume(self: *Parser, expected_token_type: TokenType) !void {
         // try std.fmt.parseInt(i64, self.current_token.value, 10);
         if (self.current_token.type == expected_token_type) {
             self.eatToken();

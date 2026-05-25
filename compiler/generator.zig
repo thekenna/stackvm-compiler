@@ -4,23 +4,57 @@ const Node = @import("ast.zig").Node;
 
 pub const Compiler = struct {
     bytecode: std.ArrayList(u8),
-    variables: std.StringHashMap(usize), // variable name -> vm mem address
+    // variables: std.StringHashMap(usize), // variable name -> vm mem address
+    scopes: std.ArrayList(std.StringHashMap(isize)),
     allocator: std.mem.Allocator,
+
+    functions: std.StringHashMap(usize),
 
     next_address_idx: usize = 0,
 
+    scope_offset: isize = 0, // current scope offset
+
     pub fn init(allocator: std.mem.Allocator) Compiler {
-        return Compiler{
+        var compiler = Compiler{
             .allocator = allocator,
             .bytecode = std.ArrayList(u8).initCapacity(allocator, 0) catch unreachable,
-            .variables = std.StringHashMap(usize).init(allocator),
+            // .variables = std.StringHashMap(usize).init(allocator),
+            .scopes = std.ArrayList(std.StringHashMap(isize)).initCapacity(allocator, 1) catch unreachable,
+            .functions = std.StringHashMap(usize).init(allocator),
         };
+
+        try compiler.pushScope(); // init Global scope
+
+        return compiler;
     }
 
     pub fn deinit(self: *Compiler) void {
         self.bytecode.deinit(self.allocator);
-        self.variables.deinit();
+        // self.variables.deinit();
+        self.functions.deinit();
+
+        for (self.scopes.items) |*scope| {
+            scope.deinit();
+        }
+        self.scopes.deinit(self.allocator);
     }
+
+    fn pushScope(self: *Compiler) !void {
+        const scope = std.StringHashMap(isize).init(self.allocator);
+        try self.scopes.append(self.allocator, scope);
+
+        self.scope_offset = 0; // reset offset for new scope
+    }
+
+    fn popScope(self: *Compiler) !void {
+        var scope = self.scopes.pop() orelse {
+            return error.PopEmptyScope;
+        };
+
+        scope.deinit();   
+    }
+
+    fn resolveVariable
 
     pub fn emit(self: *Compiler, item: u8) !void {
         try self.bytecode.append(self.allocator, item);
@@ -54,7 +88,7 @@ pub const Compiler = struct {
                     addr = existing_addr;
                 } else {
                     addr = self.next_address_idx;
-                    // Если Zig 0.16 требует аллокатор: put(self.allocator, a.name, addr)
+
                     try self.variables.put(a.name, addr);
                     self.next_address_idx += 1;
                 }
@@ -71,6 +105,12 @@ pub const Compiler = struct {
                     return error.UndefinedVariable;
                 }
             },
+            // .function_decl => |f| {
+            //     // f.
+            // },
+            // .call_expr => || {
+
+            // },
         }
     }
 };
