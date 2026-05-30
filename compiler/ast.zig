@@ -10,6 +10,7 @@ pub const Node = union(enum) {
     binary_op: BynaryOp,
     function_decl: FunctionDecl,
     call_expr: CallExpr,
+    return_stmt: *Node,
 
     pub const Assigment = struct {
         name: []const u8,
@@ -30,6 +31,6 @@ pub const Node = union(enum) {
 
     pub const CallExpr = struct {
         name: []const u8,
-        args: [][]*Node,
+        args: []*Node,
     }; 
 };

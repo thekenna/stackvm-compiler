@@ -16,6 +16,7 @@ pub const TokenType = enum {
     lbrace, // {
     rbrace, // },
     comma, // ,
+    @"return", 
 };
 
 pub const Token = struct {

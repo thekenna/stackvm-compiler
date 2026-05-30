@@ -61,7 +61,6 @@ pub fn main() !void {
     const source = "let x = 10 + 5 + 3 + 10;";
     std.debug.print("=== 1. SOURCE CODE ===\n{s}\n\n", .{source});
 
-    // Инициализация памяти (Arena для AST, обычный аллокатор для байт-кода)
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
@@ -78,7 +77,6 @@ pub fn main() !void {
     var compiler = Compiler.init(allocator);
     defer compiler.deinit();
 
-    // Генерируем код из дерева
     compiler.genNode(ast_tree) catch |err| {
         std.debug.print("Compile error: {any}\n", .{err});
         return;
@@ -95,7 +93,7 @@ pub fn main() !void {
     std.debug.print("\n\n", .{});
 
     std.debug.print("=== 4. VM EXECUTION ===\n", .{});
-    var vm = VM{}; // Инициализируем нашу машину
+    var vm = VM{};
     vm.run(program);
 
 

@@ -113,30 +113,58 @@ pub const VM = struct {
                         std.debug.print(" -> RET PANIC: call stack pointer <= 0 EXIT", .{});
                         return;
                     }
+                    
+                    self.pc += 1;
+                    const arg_count = program[self.pc];
+
                     const result = self.stack.data[self.stack.getSP() - 1];
 
                     self.csp -= 1;
                     const frame = self.call_stack[self.csp];
 
-                    self.stack.setSP(self.fp) catch |err| {
-                        std.debug.print(" -> RET PANIC: {s}", .{err});
+                    self.stack.setSP(self.fp - arg_count) catch |err| {
+                        std.debug.print(" -> RET PANIC: {s}\n", .{@errorName(err)});
+                        return;
                     };
 
+                
                     self.stack.push(result);
 
+                    // 6. Восстанавливаем FP и PC
                     self.fp = frame.saved_fp;
-
                     self.pc = frame.return_pc;
                     continue;
-
-                    // self.csp -= 1;
-                    // const ret_index = self.call_stack[self.csp];
-
-                    // std.debug.print(" -> RET TO ({d})\n", .{ret_index});
-
-                    // self.pc = ret_index;
-                    // continue;
                 },
+                // .ret => {
+                //     if (self.csp <= 0) {
+                //         std.debug.print(" -> RET PANIC: call stack pointer <= 0 EXIT", .{});
+                //         return;
+                //     }
+
+                //     const result = self.stack.data[self.stack.getSP() - 1];
+
+                //     self.csp -= 1;
+                //     const frame = self.call_stack[self.csp];
+
+                //     self.stack.setSP(self.fp) catch |err| {
+                //         std.debug.print(" -> RET PANIC: {s}", .{err});
+                //     };
+
+                //     self.stack.push(result);
+
+                //     self.fp = frame.saved_fp;
+
+                //     self.pc = frame.return_pc;
+                //     continue;
+
+                //     // self.csp -= 1;
+                //     // const ret_index = self.call_stack[self.csp];
+
+                //     // std.debug.print(" -> RET TO ({d})\n", .{ret_index});
+
+                //     // self.pc = ret_index;
+                //     // continue;
+                // },
                 .store => {
                     // stack -> memory
                     self.pc += 1;
@@ -183,7 +211,7 @@ pub const VM = struct {
                     const raw_byte = program[self.pc];
                     const offset = @as(isize, @as(i8, @bitCast(raw_byte)));
 
-                    const val = self.stack.pop(); 
+                    const val = self.stack.pop();
 
                     const addr = @as(usize, @intCast(@as(isize, @intCast(self.fp)) + offset)); // FP + offset args(-1, -2)
 
@@ -193,11 +221,10 @@ pub const VM = struct {
 
                 .load_local => {
                     self.pc += 1;
-                   
+
                     const raw_byte = program[self.pc];
                     const offset = @as(isize, @as(i8, @bitCast(raw_byte)));
 
-                   
                     const addr = @as(usize, @intCast(@as(isize, @intCast(self.fp)) + offset));
 
                     const val = self.stack.data[addr];

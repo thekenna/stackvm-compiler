@@ -25,7 +25,7 @@ pub const Parser = struct {
         };
     }
 
-    pub fn parseExpression(self: *Parser) !*Node {
+    pub fn parseExpression(self: *Parser) ParserError!*Node {
         // 5 .plus 3 .plus 2
         var left = try self.parse(); // 5
         // eat 5 and assign to left -> next token to current (.plus)
@@ -83,6 +83,10 @@ pub const Parser = struct {
             return assign_node;
         }
 
+        if(self.current_token.type == .@"return") {
+            return try self.parseReturnStatement();
+        }
+
         // if its not let -> then its expression
         const expression_node = try self.parseExpression();
         try self.consume(.semicolon);
@@ -90,7 +94,7 @@ pub const Parser = struct {
         return expression_node;
     }
 
-    pub fn parse(self: *Parser) !*Node {
+    pub fn parse(self: *Parser) ParserError!*Node {
         const node_ptr = try self.allocator.create(Node);
 
         switch (self.current_token.type) {
@@ -120,6 +124,18 @@ pub const Parser = struct {
                 return error.UnexpectedToken;
             },
         }
+    }
+
+    fn parseReturnStatement(self: *Parser) ParserError!*Node {
+        try self.consume(.@"return");
+
+        const expr_node = try self.parseExpression();
+
+        try self.consume(.semicolon);
+
+        const node_ptr = try self.allocator.create(Node);
+        node_ptr.* = Node{ .return_stmt = expr_node };
+        return node_ptr;
     }
 
     fn parseFunction(self: *Parser) !*Node {
@@ -169,9 +185,45 @@ pub const Parser = struct {
         return node;
     }
 
-    fn parseCallExpression(self: *Parser) !*Node {
+    // fn parseCallExpression(self: *Parser) ParserError!*Node {
+    //     const func_name = self.current_token.value;
+
+    //     try self.consume(.lpar);
+
+    //     var args = try std.ArrayList(*Node).initCapacity(self.allocator, 0);
+    //     defer args.deinit(self.allocator);
+
+    //     while (self.current_token.type != .rpar) {
+    //         const arg = try self.parseExpression();
+
+    //         try args.append(self.allocator, arg);
+
+    //         if (self.current_token.type == .comma) {
+    //             try self.consume(.comma);
+    //         }
+    //     }
+
+    //     try self.consume(.rpar);
+
+    //     const node = try self.allocator.create(Node);
+
+    //     node.* = Node{ .call_expr = .{
+    //         .name = func_name,
+    //         .args = try args.toOwnedSlice(self.allocator),
+    //     } };
+
+    //     return node;
+    // }
+
+    fn parseCallExpression(self: *Parser) ParserError!*Node {
+        // 1. Запоминаем имя функции ("sum4")
         const func_name = self.current_token.value;
 
+        // 2. ВАЖНО: Сначала съедаем само имя функции ("sum4")!
+        // После этого current_token станет равен скобке "("
+        try self.consume(.identifier);
+
+        // 3. Теперь безопасно съедаем открывающую скобку "("
         try self.consume(.lpar);
 
         var args = try std.ArrayList(*Node).initCapacity(self.allocator, 0);
@@ -193,7 +245,7 @@ pub const Parser = struct {
 
         node.* = Node{ .call_expr = .{
             .name = func_name,
-            .args = args.toOwnedSlice(self.allocator),
+            .args = try args.toOwnedSlice(self.allocator),
         } };
 
         return node;
