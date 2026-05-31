@@ -113,7 +113,7 @@ pub const VM = struct {
                         std.debug.print(" -> RET PANIC: call stack pointer <= 0 EXIT", .{});
                         return;
                     }
-                    
+
                     self.pc += 1;
                     const arg_count = program[self.pc];
 
@@ -130,41 +130,10 @@ pub const VM = struct {
                 
                     self.stack.push(result);
 
-                    // 6. Восстанавливаем FP и PC
                     self.fp = frame.saved_fp;
                     self.pc = frame.return_pc;
                     continue;
                 },
-                // .ret => {
-                //     if (self.csp <= 0) {
-                //         std.debug.print(" -> RET PANIC: call stack pointer <= 0 EXIT", .{});
-                //         return;
-                //     }
-
-                //     const result = self.stack.data[self.stack.getSP() - 1];
-
-                //     self.csp -= 1;
-                //     const frame = self.call_stack[self.csp];
-
-                //     self.stack.setSP(self.fp) catch |err| {
-                //         std.debug.print(" -> RET PANIC: {s}", .{err});
-                //     };
-
-                //     self.stack.push(result);
-
-                //     self.fp = frame.saved_fp;
-
-                //     self.pc = frame.return_pc;
-                //     continue;
-
-                //     // self.csp -= 1;
-                //     // const ret_index = self.call_stack[self.csp];
-
-                //     // std.debug.print(" -> RET TO ({d})\n", .{ret_index});
-
-                //     // self.pc = ret_index;
-                //     // continue;
-                // },
                 .store => {
                     // stack -> memory
                     self.pc += 1;
