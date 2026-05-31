@@ -30,13 +30,14 @@ pub const Parser = struct {
         var left = try self.parse(); // 5
         // eat 5 and assign to left -> next token to current (.plus)
 
-        while (self.current_token.type == .plus) {
+        while (isAdditiveOp(self.current_token.type)) {
             const op_token = self.current_token;
 
-            self.eatToken(); // eat +(.plus)
+            self.eatToken();
 
             const op: ast.Op = switch (op_token.type) {
                 .plus => .add,
+                .minus => .sub,
                 else => unreachable,
             };
 
@@ -57,6 +58,14 @@ pub const Parser = struct {
     }
 
     pub fn parseStatement(self: *Parser) !*Node {
+        if (self.current_token.type == .@"if") {
+            return try self.parseIfStatement();
+        }
+
+        if (self.current_token.type == .@"while") {
+            return try self.parseWhileStatement();
+        }
+
         if (self.current_token.type == .let) {
             self.eatToken(); // move right
 
@@ -83,7 +92,26 @@ pub const Parser = struct {
             return assign_node;
         }
 
-        if(self.current_token.type == .@"return") {
+        if (self.current_token.type == .identifier and self.next_token.type == .assign) {
+            const name_token = self.current_token;
+
+            try self.consume(.identifier);
+            try self.consume(.assign);
+
+            const value_node = try self.parseExpression();
+            try self.consume(.semicolon);
+
+            const assign_node = try self.allocator.create(Node);
+
+            assign_node.* = Node{ .assignment = .{
+                .name = name_token.value,
+                .value = value_node,
+            } };
+
+            return assign_node;
+        }
+
+        if (self.current_token.type == .@"return") {
             return try self.parseReturnStatement();
         }
 
@@ -124,6 +152,61 @@ pub const Parser = struct {
                 return error.UnexpectedToken;
             },
         }
+    }
+
+    fn parseWhileStatement(self: *Parser) ParserError!*Node {
+        try self.consume(.@"while");
+        try self.consume(.lpar);
+
+        const condition = try self.parseExpression();
+
+        try self.consume(.rpar);
+        try self.consume(.lbrace);
+
+        var body = try std.ArrayList(*Node).initCapacity(self.allocator, 2);
+
+        while(self.current_token.type != .rbrace) {
+            const _node = try self.parseStatement();
+            try body.append(self.allocator, _node);
+        }
+
+        try self.consume(.rbrace);
+
+        const node_ptr = try self.allocator.create(Node);
+        node_ptr.* = Node{.while_stmt = .{
+            .condition = condition,
+            .body = try body.toOwnedSlice(self.allocator),
+        }};
+
+        return node_ptr;
+    }
+
+    fn parseIfStatement(self: *Parser) ParserError!*Node {
+        try self.consume(.@"if");
+        try self.consume(.lpar);
+
+        const condition = try self.parseExpression();
+
+        try self.consume(.rpar);
+        try self.consume(.lbrace);
+
+        var body = try std.ArrayList(*Node).initCapacity(self.allocator, 2);
+        defer body.deinit(self.allocator);
+
+        while (self.current_token.type != .rbrace) {
+            const node = try self.parseStatement();
+            try body.append(self.allocator, node);
+        }
+
+        try self.consume(.rbrace);
+
+        const node_ptr = try self.allocator.create(Node);
+        node_ptr.* = Node{.if_stmt = .{
+            .body = try body.toOwnedSlice(self.allocator),
+            .condition = condition,
+        }};
+
+        return node_ptr;
     }
 
     fn parseReturnStatement(self: *Parser) ParserError!*Node {
@@ -267,3 +350,10 @@ pub const Parser = struct {
         }
     }
 };
+
+fn isAdditiveOp(t_type: TokenType) bool {
+    return switch (t_type) {
+        .plus, .minus => true,
+        else => false,
+    };
+}

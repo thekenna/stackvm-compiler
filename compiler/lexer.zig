@@ -2,12 +2,14 @@ const std = @import("std");
 
 pub const TokenType = enum {
     let,
-    @"if",// std.meta.stringToEnum(TokenType, value)
-    @"else",
+    @"if", // std.meta.stringToEnum(TokenType, value)
+    @"return",
+    @"while",
     identifier,
     assign, //  "="
     number,
     plus, // +
+    minus, // -
     semicolon, // ;
     lpar, // (
     rpar, // )
@@ -16,7 +18,6 @@ pub const TokenType = enum {
     lbrace, // {
     rbrace, // },
     comma, // ,
-    @"return", 
 };
 
 pub const Token = struct {
@@ -38,7 +39,7 @@ pub const Lexer = struct {
             };
         }
 
-        const start = self.pos; 
+        const start = self.pos;
         const curChar = self.source[self.pos];
 
         return switch (curChar) {
@@ -46,6 +47,7 @@ pub const Lexer = struct {
             '0'...'9' => self.lexNumber(start),
             '=' => self.consume(TokenType.assign, start, self.pos + 1),
             '+' => self.consume(TokenType.plus, start, self.pos + 1),
+            '-' => self.consume(TokenType.minus, start, self.pos + 1),
             ';' => self.consume(TokenType.semicolon, start, self.pos + 1),
             '(' => self.consume(TokenType.lpar, start, self.pos + 1),
             ')' => self.consume(TokenType.rpar, start, self.pos + 1),

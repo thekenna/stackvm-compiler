@@ -11,6 +11,8 @@ pub const Node = union(enum) {
     function_decl: FunctionDecl,
     call_expr: CallExpr,
     return_stmt: *Node,
+    if_stmt: IfStmt,
+    while_stmt: WhileStmt,
 
     pub const Assigment = struct {
         name: []const u8,
@@ -32,5 +34,15 @@ pub const Node = union(enum) {
     pub const CallExpr = struct {
         name: []const u8,
         args: []*Node,
-    }; 
+    };
+
+    pub const IfStmt = struct {
+        condition: *Node,
+        body: []*Node,
+    };
+
+    pub const WhileStmt = struct {
+        condition: *Node,
+        body: []*Node,
+    };
 };

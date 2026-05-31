@@ -5,7 +5,7 @@ const Node = @import("ast.zig").Node;
 pub const Compiler = struct {
     bytecode: std.ArrayList(u8),
     // variables: std.StringHashMap(usize), // variable name -> vm mem address
-    globals: std.StringHashMap(usize), 
+    globals: std.StringHashMap(usize),
     scopes: std.ArrayList(std.StringHashMap(isize)),
     allocator: std.mem.Allocator,
 
@@ -54,7 +54,7 @@ pub const Compiler = struct {
             return error.PopEmptyScope;
         };
 
-        scope.deinit();   
+        scope.deinit();
     }
 
     fn resolveLocal(self: *Compiler, var_name: []const u8) ?isize {
@@ -90,46 +90,43 @@ pub const Compiler = struct {
 
                 switch (b.op) {
                     .add => try self.emitOp(.add),
-                    // .sub => try self.emitOp(.sub),
-                    else => return error.UnsupportedOp,
+                    .sub => try self.emitOp(.sub),
+                    // else => return error.UnsupportedOp,
                 }
             },
             .assignment => |a| {
                 try self.genNode(a.value);
 
-
-                if (self.scopes.items.len > 0) {
-                    var offset: isize = 0;
-                    if (self.resolveLocal(a.name)) |current_offset| {
-                        offset = current_offset;
-                    } else {
-                        offset = self.scope_offset;
-  
+                if (self.resolveLocal(a.name)) |offset| {
+                    try self.emitOp(.store_local);
+                    try self.emit(@bitCast(@as(i8, @intCast(offset))));
+                } else if (self.globals.get(a.name)) |addr| {
+                    try self.emitOp(.store);
+                    try self.emit(@intCast(addr));
+                } else {
+                    if (self.scopes.items.len > 0) {
+                        const offset = self.scope_offset;
                         const scope_idx = self.scopes.items.len - 1;
                         try self.scopes.items[scope_idx].put(a.name, offset);
                         self.scope_offset += 1;
-                    }
-                    try self.emitOp(.store_local);
-                    try self.emit(@bitCast(@as(i8, @intCast(offset))));
-                } else {
-                    var addr: usize = 0;
-                    if (self.globals.get(a.name)) |existing_addr| {
-                        addr = existing_addr;
+
+                        try self.emitOp(.store_local);
+                        try self.emit(@bitCast(@as(i8, @intCast(offset))));
                     } else {
-                        addr = self.next_address_idx;
+                        const addr = self.next_address_idx;
                         try self.globals.put(a.name, addr);
                         self.next_address_idx += 1;
+
+                        try self.emitOp(.store);
+                        try self.emit(@intCast(addr));
                     }
-                    try self.emitOp(.store);
-                    try self.emit(@intCast(addr));
                 }
             },
-             .variable => |name| {
+            .variable => |name| {
                 if (self.resolveLocal(name)) |offset| {
                     try self.emitOp(.load_local);
                     try self.emit(@bitCast(@as(i8, @intCast(offset))));
-                } 
-                else if (self.globals.get(name)) |addr| {
+                } else if (self.globals.get(name)) |addr| {
                     try self.emitOp(.load);
                     try self.emit(@intCast(addr));
                 } else {
@@ -171,7 +168,7 @@ pub const Compiler = struct {
                 for (f.body) |_node| {
                     try self.genNode(_node);
                 }
-                
+
                 try self.emitOp(.ret);
                 try self.emit(@intCast(f.params.len));
 
@@ -188,10 +185,9 @@ pub const Compiler = struct {
                 for (c.args) |arg| {
                     try self.genNode(arg);
                 }
-               
+
                 const addr = self.functions.get(c.name) orelse return error.UndefinedFunction;
-                
-               
+
                 try self.emitOp(.call);
                 try self.emit(@intCast(addr));
             },
@@ -200,7 +196,48 @@ pub const Compiler = struct {
 
                 try self.emitOp(.ret);
                 try self.emit(@intCast(self.current_func_arg_count));
-            }
+            },
+            .while_stmt => |stmt| {
+                const start_loop_addr = self.bytecode.items.len;
+
+                try self.genNode(stmt.condition);
+
+                try self.emitOp(.jump_if_zero);
+                const exit_placeholder = self.bytecode.items.len;
+                try self.emit(0);
+
+                try self.pushScope();
+
+                for (stmt.body) |_node| {
+                    try self.genNode(_node);
+                }
+
+                try self.popScope();
+
+                try self.emitOp(.jump);
+                try self.emit(@intCast(start_loop_addr));
+
+                self.bytecode.items[exit_placeholder] = @intCast(self.bytecode.items.len);
+            },
+            .if_stmt => |stmt| {
+                try self.genNode(stmt.condition); // result adds on top of stack
+
+                try self.emitOp(.jump_if_zero);
+
+                const jump_placeholder = self.bytecode.items.len;
+                try self.emit(0);
+
+                // add local scope
+                try self.pushScope();
+
+                for (stmt.body) |_node| {
+                    try self.genNode(_node);
+                }
+
+                try self.popScope();
+
+                self.bytecode.items[jump_placeholder] = @intCast(self.bytecode.items.len); // jump index (after if {})
+            },
         }
     }
 };
