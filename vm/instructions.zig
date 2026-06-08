@@ -11,4 +11,5 @@ pub const OpCode = enum(u8) {
     load = 0x09,
     store_local = 0x0a,
     load_local = 0x0b,
+    alloc_locals = 0x0c,
 };

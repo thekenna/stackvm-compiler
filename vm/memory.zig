@@ -10,7 +10,6 @@ pub const Memory = struct {
 
         // std.debug.print(" -> LOAD {d} from {d}\n", .{value, memory_idx});
         return self.data[index];
-        
     }
 
     pub fn write(self: *Memory, index: usize, value: i64) MemoryError!void {
@@ -25,5 +24,17 @@ pub const Memory = struct {
             std.debug.print(" -> STORE SEGFAULT!: Address {d} out of bounds!\n", .{index});
             return MemoryError.OutOfBounds;
         }
+    }
+
+    pub fn printDump(self: *const Memory, limit: usize) void {
+        std.debug.print("\n=== RAM DUMP ===\n", .{});
+
+        var i: usize = 0;
+
+        while (i < limit) : (i += 1) {
+            std.debug.print("  Memory[{d}] = {d}\n", .{ i, self.data[i] });
+        }
+
+        std.debug.print("===================\n", .{});
     }
 };

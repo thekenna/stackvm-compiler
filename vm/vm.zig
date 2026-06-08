@@ -127,7 +127,6 @@ pub const VM = struct {
                         return;
                     };
 
-                
                     self.stack.push(result);
 
                     self.fp = frame.saved_fp;
@@ -199,6 +198,12 @@ pub const VM = struct {
                     const val = self.stack.data[addr];
                     self.stack.push(val);
                     std.debug.print(" -> LOAD_LOCAL val {d} from FP + {d} (index {d})\n", .{ val, offset, addr });
+                },
+                .alloc_locals => {
+                    self.pc += 1;
+                    const count = program[self.pc];
+
+                    self.stack.sp += count;
                 },
             }
 

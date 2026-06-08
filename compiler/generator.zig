@@ -46,7 +46,7 @@ pub const Compiler = struct {
         const scope = std.StringHashMap(isize).init(self.allocator);
         try self.scopes.append(self.allocator, scope);
 
-        self.scope_offset = 0; // reset offset for new scope
+        // self.scope_offset = 0; // reset offset for new scope
     }
 
     fn popScope(self: *Compiler) !void {
@@ -164,6 +164,13 @@ pub const Compiler = struct {
                 const prev_func_arg_count = self.current_func_arg_count;
                 self.current_func_arg_count = f.params.len;
 
+                const old_scope_offset = self.scope_offset; 
+                self.scope_offset = 0; 
+
+                try self.emitOp(.alloc_locals);
+                const alloc_placeholder = self.bytecode.items.len;
+                try self.emit(0);
+
                 // GENERATE BODY
                 for (f.body) |_node| {
                     try self.genNode(_node);
@@ -174,8 +181,12 @@ pub const Compiler = struct {
 
                 self.current_func_arg_count = prev_func_arg_count;
 
+                self.bytecode.items[alloc_placeholder] = @intCast(self.scope_offset);
+
                 // Clear local scope
                 try self.popScope();
+
+                self.scope_offset = old_scope_offset;
 
                 // FIX JUMP IDX rewrite zero "0" to this address
                 self.bytecode.items[jump_placeholder] = @intCast(self.bytecode.items.len);

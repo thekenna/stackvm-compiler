@@ -1,0 +1,31 @@
+let base = 2;
+let exponent = 3;
+
+function multiply (a, b) {
+    let result = 0;
+
+    while (b) {
+        result = result + a;
+        b = b - 1;
+    }
+
+    return result;
+};
+
+function pow (base, exponent) {
+    let result = base;
+    exponent = exponent - 1;
+    
+    while (exponent) {
+        result = multiply(result, base);
+        exponent = exponent - 1;
+    }
+
+    return result;
+};
+
+let res = 1;
+
+if (res) {
+    res = pow(base, exponent);
+}
